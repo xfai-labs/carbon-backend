@@ -1,5 +1,3 @@
-// coinmarketcap.dto.ts
-
 import { IsNumber } from 'class-validator';
 import { IsAddress } from '../../isAddress.validator';
 import { Transform, Type } from 'class-transformer';

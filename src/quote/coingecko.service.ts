@@ -20,7 +20,7 @@ export class CoinGeckoService {
       }
 
       const requests = batches.map(async (batch) => {
-        return axios.get(`${this.baseURL}/simple/token_price/ethereum`, {
+        return axios.get(`${this.baseURL}/simple/token_price/linea`, {
           params: {
             contract_addresses: batch.join(','),
             vs_currencies: convert.join(','),

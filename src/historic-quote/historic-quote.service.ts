@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
-import { CoinMarketCapService } from '../coinmarketcap/coinmarketcap.service';
 import { HistoricQuote } from './historic-quote.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -8,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import * as _ from 'lodash';
 import moment from 'moment';
 import Decimal from 'decimal.js';
+import { CoinGeckoService } from 'src/coingecko/coingecko.service';
 
 type Candlestick = {
   timestamp: number;
@@ -25,7 +25,7 @@ export class HistoricQuoteService implements OnModuleInit {
 
   constructor(
     @InjectRepository(HistoricQuote) private repository: Repository<HistoricQuote>,
-    private coinmarketcapService: CoinMarketCapService,
+    private coingeckoService: CoinGeckoService,
     private configService: ConfigService,
     private schedulerRegistry: SchedulerRegistry,
   ) {
@@ -47,7 +47,7 @@ export class HistoricQuoteService implements OnModuleInit {
 
     try {
       const latest = await this.getLatest();
-      const quotes = await this.coinmarketcapService.getLatestQuotes();
+      const quotes = await this.coingeckoService.getLatestQuotes();
       const newQuotes = [];
       for (const q of quotes) {
         const tokenAddress = q.tokenAddress;
@@ -75,26 +75,25 @@ export class HistoricQuoteService implements OnModuleInit {
     const end = moment().unix();
     let i = 0;
 
-    const tokens = await this.coinmarketcapService.getAllTokens();
-    const batchSize = 100; // Adjust the batch size as needed
+    const tokens = await this.coingeckoService.getAllTokens();
+    const batchSize = 10; // Adjust the batch size as needed
 
     for (let startIndex = 0; startIndex < tokens.length; startIndex += batchSize) {
       const batchTokens = tokens.slice(startIndex, startIndex + batchSize);
-      const addresses = batchTokens.map((token) => token.platform.token_address);
 
       // Fetch historical quotes for the current batch of tokens
-      const quotesByAddress = await this.coinmarketcapService.getHistoricalQuotes(addresses, start, end);
+      const quotesByAddress = await this.coingeckoService.getHistoricalQuotes(batchTokens, start, end);
 
       for (const token of batchTokens) {
-        const address = token.platform.token_address;
+        const address = token.token_address;
         const quotes = quotesByAddress[address];
 
-        const newQuotes = quotes.map((q: any) =>
+        const newQuotes = quotes.map((q) =>
           this.repository.create({
             tokenAddress: q.address,
-            usd: q.price,
+            usd: q.price.toString(),
             timestamp: moment.unix(q.timestamp).utc().toISOString(),
-            provider: 'coinmarketcap',
+            provider: 'coingecko',
           }),
         );
 
