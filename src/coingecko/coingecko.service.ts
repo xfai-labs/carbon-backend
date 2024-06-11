@@ -78,29 +78,25 @@ export class CoinGeckoService {
   }
 
   async getHistoricalQuotes(tokens: CoinGeckoCoin[], start: number, end: number) {
-    const MAX_RESULTS_PER_CALL = 89 * 60 * 24;
+    const intervalInSeconds = moment.duration(89,'days').asSeconds();
+    
     const result: { [key: string]: PriceObject[] } = {};
     const requests: Promise<readonly [string, CoinMarketChartResponse]>[] = [];
 
     for (const token of tokens) {
       try {
-        const totalDataPoints = Math.ceil((end - start) / (INTERVAL_IN_MINUTES * 60));
-        const batches = Math.ceil(totalDataPoints / MAX_RESULTS_PER_CALL);
-        const intervalInSeconds = Math.ceil((end - start) / batches);
-
-        for (let i = 0; i < batches; i++) {
-          const intervalStart = moment.unix(start + i * intervalInSeconds).unix();
-          const intervalEnd = moment.unix(Math.min(start + (i + 1) * intervalInSeconds, end)).unix();
-
+        let current_time = end;
+        while (current_time > start) {
           const tokenChartData = this.client
             .coinIdMarketChartRange({
               id: token.id,
               vs_currency: 'usd',
-              from: intervalStart,
-              to: intervalEnd,
+              from: Math.max(start,current_time - intervalInSeconds),
+              to: current_time,
             })
             .then((r) => [token.token_address, r] as const);
           requests.push(tokenChartData);
+          current_time -= intervalInSeconds;
         }
       } catch (error) {}
     }
