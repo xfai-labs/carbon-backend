@@ -108,8 +108,8 @@ export class CoinGeckoService {
     const responses = await Promise.all(requests);
 
     responses.forEach(([token_address, token_prices]) => {
-      const prices = token_prices.prices.map(([timestamp, price]) => {
-        return { price, timestamp: timestamp, address: token_address };
+      const prices = token_prices.prices.map(([timestampInMs, price]) => {
+        return { price, timestamp: timestampInMs / 1000, address: token_address };
       });
 
       result[token_address] = (result[token_address] || []).concat(prices);
