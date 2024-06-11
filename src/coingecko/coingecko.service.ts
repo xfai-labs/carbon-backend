@@ -78,7 +78,7 @@ export class CoinGeckoService {
   }
 
   async getHistoricalQuotes(tokens: CoinGeckoCoin[], start: number, end: number) {
-    const MAX_RESULTS_PER_CALL = 100 * 60 * 24;
+    const MAX_RESULTS_PER_CALL = 89 * 60 * 24;
     const result: { [key: string]: PriceObject[] } = {};
     const requests: Promise<readonly [string, CoinMarketChartResponse]>[] = [];
 
@@ -95,10 +95,9 @@ export class CoinGeckoService {
           const tokenChartData = this.client
             .coinIdMarketChartRange({
               id: token.id,
+              vs_currency: 'usd',
               from: intervalStart,
               to: intervalEnd,
-              // @ts-expect-error interval is not in the type definition
-              interval: 'hourly',
             })
             .then((r) => [token.token_address, r] as const);
           requests.push(tokenChartData);

@@ -20,7 +20,7 @@ WORKDIR /usr/src/app
 COPY package.json ./
 
 # Install Node.js dependencies
-RUN npm install --omit=dev
+RUN npm install --include=dev
 
 # Copy local code to the container image.
 COPY . ./
