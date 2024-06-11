@@ -43,7 +43,7 @@ export class CoinGeckoService {
     ).map((d) => ({
       tokenAddress: tokenMap.find((t) => t.id === d.id)?.token_address,
       usd: d.current_price,
-      timestamp: d.last_updated,
+      timestamp: moment(d.last_updated).utc().toISOString(),
       provider: 'coingecko',
     }));
   }
