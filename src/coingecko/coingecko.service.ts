@@ -68,11 +68,11 @@ export class CoinGeckoService {
         ids: ids.join(','),
         vs_currencies: 'usd',
         include_last_updated_at: true,
-      })) as unknown as { [token_id: string]: { usd: string; last_updated_at: string } },
+      })) as unknown as { [token_id: string]: { usd: string; last_updated_at: number } },
     ).map(([token_id, { usd, last_updated_at }]) => ({
       tokenAddress: tokenAddressById[token_id],
       usd: usd,
-      timestamp: last_updated_at,
+      timestamp: moment.unix(last_updated_at).utc().toISOString(),
       provider: 'coingecko',
     }));
   }
