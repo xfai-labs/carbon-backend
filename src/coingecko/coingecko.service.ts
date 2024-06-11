@@ -18,10 +18,13 @@ type CoinGeckoCoin = {
   token_address: string;
 };
 
+const ETH_ID = 'ethereum';
 @Injectable()
 export class CoinGeckoService {
   private client: CoinGeckoClient;
+  private readonly ethereumTokenAddress: string;
   constructor(private readonly configService: ConfigService) {
+    this.ethereumTokenAddress = this.configService.get<string>('ETH');
     this.client = new CoinGeckoClient(
       {
         timeout: 10000,
@@ -58,7 +61,10 @@ export class CoinGeckoService {
       .map((d) => ({
         id: d.id,
         token_address: d.platforms['linea'],
-      }));
+      })).concat([{
+        id: ETH_ID,
+        token_address: this.ethereumTokenAddress.toLowerCase()
+      }]);
   }
 
   private async getV2CryptocurrencyQuotesLatest(ids: string[]) {
@@ -116,7 +122,7 @@ export class CoinGeckoService {
 
   async getLatestQuotes(): Promise<any> {
     const latestQuotes = await this.getV1CryptocurrencyListingsLatest();
-    const eth = await this.getV2CryptocurrencyQuotesLatest(['ethereum']);
+    const eth = await this.getV2CryptocurrencyQuotesLatest([ETH_ID]);
     return [...latestQuotes, ...eth];
   }
 }
