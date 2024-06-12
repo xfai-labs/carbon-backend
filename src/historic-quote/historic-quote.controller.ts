@@ -1,14 +1,15 @@
 import { CacheTTL } from '@nestjs/cache-manager';
-import { BadRequestException, Controller, Get, Header, Query } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Header, Headers, Query, UseGuards } from '@nestjs/common';
 import { HistoricQuoteDto } from './historic-quote.dto';
 import moment from 'moment';
 import { HistoricQuoteService } from './historic-quote.service';
+import { ConfigService } from '@nestjs/config';
 
-@Controller({ version: '1', path: 'history/prices' })
+@Controller({ version: '1', path: 'history' })
 export class HistoricQuoteController {
-  constructor(private historicQuoteService: HistoricQuoteService) {}
+  constructor(private historicQuoteService: HistoricQuoteService, private configService: ConfigService) {}
 
-  @Get()
+  @Get('/prices')
   @CacheTTL(1 * 60 * 60 * 1000)
   @Header('Cache-Control', 'public, max-age=60') // Set Cache-Control header
   async prices(@Query() params: HistoricQuoteDto) {
@@ -51,8 +52,21 @@ export class HistoricQuoteController {
 
     return result;
   }
-}
 
+
+  @Get('/seed')
+  seedHistoricQuotes(@Headers() headers: Record<string,string>) {
+    const authSecret = headers['auth-secret'];
+    if (this.configService.get<string>('AUTH_SECRET') !== authSecret) {
+      throw new BadRequestException({
+        message: ['Invalid auth secret'],
+        error: 'Bad Request',
+        statusCode: 400,
+      });
+    }
+    this.historicQuoteService.seed();
+  }
+}
 const isValidStart = (start: number): boolean => {
   const twelveMonthsAgo = moment().subtract(12, 'months').startOf('day').unix();
   return start >= twelveMonthsAgo;
