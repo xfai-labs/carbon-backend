@@ -56,6 +56,9 @@ export class CoinGeckoService {
 
       console.log(`Token address not found for ${l.id}`);
       return false;
+    }).map(l => {
+      delete l.id;
+      return l;
     });
   }
 
