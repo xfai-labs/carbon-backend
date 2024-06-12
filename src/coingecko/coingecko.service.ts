@@ -11,7 +11,6 @@ export interface PriceObject {
   price: number;
   address: string;
 }
-const INTERVAL_IN_MINUTES = 60;
 
 type CoinGeckoCoin = {
   id: string;
@@ -43,19 +42,30 @@ export class CoinGeckoService {
         vs_currency: 'usd',
         order: 'market_cap_desc',
       })
-    ).map((d) => ({
-      id: d.id,
-      tokenAddress: tokenMap.find((t) => t.id === d.id)?.token_address,
-      usd: d.current_price,
-      timestamp: moment(d.last_updated).utc().toISOString(),
-      provider: 'coingecko',
-    })).filter(l => {
-      if ( l.tokenAddress !== undefined){
-        return true;
+    ).filter(d => {
+      if (!d.last_updated){
+        console.log(`Last updated not found for ${d.id}`);
+        return false;
       }
 
-      console.log(`Token address not found for ${l.id}`);
-      return false;
+      if (!d.current_price){
+        console.log(`Current price not found for ${d.id}`);
+        return false;
+      }
+      return true;
+    }
+  ).map((d) => ({
+      id: d.id,
+      tokenAddress: tokenMap.find((t) => t.id === d.id)?.token_address,
+      usd: d.current_price!,
+      timestamp: moment(d.last_updated!).utc().toISOString(),
+      provider: 'coingecko',
+    })).filter(l => {
+      if ( !l.tokenAddress){
+        console.log(`Token address not found for ${l.id}`);
+        return false;
+      }
+      return true;
     }).map(l => {
       delete l.id;
       return l;
