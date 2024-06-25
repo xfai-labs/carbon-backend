@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { indexBy } from '../utilities';
 import moment from 'moment';
 import { CoinGeckoClient, CoinMarketChartResponse } from 'coingecko-api-v3';
+import { get } from 'axios';
 
 export interface PriceObject {
   timestamp: number;
@@ -34,34 +35,33 @@ export class CoinGeckoService {
   }
 
   private async getV1CryptocurrencyListingsLatest() {
-    type DEFI = 'decentralized_finance_defi';
     const tokenMap = await this.getAllTokens();
     return (
       await this.client.coinMarket({
-        category: 'linea-ecosystem' as DEFI,
+        ids: tokenMap.map((t) => t.id).join(','),
         vs_currency: 'usd',
         order: 'market_cap_desc',
       })
     ).filter(d => {
-      if (!d.last_updated){
+      if (!d.last_updated) {
         console.log(`Last updated not found for ${d.id}`);
         return false;
       }
 
-      if (!d.current_price){
+      if (!d.current_price) {
         console.log(`Current price not found for ${d.id}`);
         return false;
       }
       return true;
     }
-  ).map((d) => ({
+    ).map((d) => ({
       id: d.id,
       tokenAddress: tokenMap.find((t) => t.id === d.id)?.token_address,
       usd: d.current_price!,
       timestamp: moment(d.last_updated!).utc().toISOString(),
       provider: 'coingecko',
     })).filter(l => {
-      if ( !l.tokenAddress){
+      if (!l.tokenAddress) {
         console.log(`Token address not found for ${l.id}`);
         return false;
       }
@@ -73,11 +73,40 @@ export class CoinGeckoService {
   }
 
   async getAllTokens(): Promise<CoinGeckoCoin[]> {
+    let linea_shortlist = (await get<{
+      tokens: Array<{
+        address: string;
+        symbol: string;
+        name: string;
+        extension?: {
+          rootChainId: number;
+          rootAddress: string;
+        }
+      }>
+    }
+    >('https://raw.githubusercontent.com/Consensys/linea-token-list/main/json/linea-mainnet-token-shortlist.json').then((r) => r.data.tokens)).filter((t) => t.extension?.rootChainId === 1);
+
     return (
       await this.client.coinList({
         include_platform: true,
       })
-    )
+    ).map((d) => {
+      if( d.platforms['linea'] !== undefined){
+        return d;
+      }
+
+      if (!d.platforms['ethereum']) {
+        return d;
+      }
+
+      // check if rootAddress matches any of the tokens in the linea shortlist
+      const tokenAddress = linea_shortlist.find((t) => t.extension.rootAddress.toLowerCase() === d.platforms['ethereum'].toLowerCase())?.address;
+      if (tokenAddress) {
+        d.platforms['linea'] = tokenAddress.toLowerCase();
+      }
+      return d;
+
+    })
       .filter((d) => d.platforms['linea'] !== undefined)
       .map((d) => ({
         id: d.id,
@@ -105,8 +134,8 @@ export class CoinGeckoService {
   }
 
   async getHistoricalQuotes(tokens: CoinGeckoCoin[], start: number, end: number) {
-    const intervalInSeconds = moment.duration(89,'days').asSeconds();
-    
+    const intervalInSeconds = moment.duration(89, 'days').asSeconds();
+
     const result: { [key: string]: PriceObject[] } = {};
     const requests: Promise<readonly [string, CoinMarketChartResponse]>[] = [];
 
@@ -118,14 +147,14 @@ export class CoinGeckoService {
             .coinIdMarketChartRange({
               id: token.id,
               vs_currency: 'usd',
-              from: Math.max(start,current_time - intervalInSeconds),
+              from: Math.max(start, current_time - intervalInSeconds),
               to: current_time,
             })
             .then((r) => [token.token_address, r] as const);
           requests.push(tokenChartData);
           current_time -= intervalInSeconds;
         }
-      } catch (error) {}
+      } catch (error) { }
     }
 
     const responses = await Promise.all(requests);
